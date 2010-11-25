@@ -1,6 +1,13 @@
-How do the service works?
+Arquitetura do serviço de conversão de vídeo
 
-It should receive a base 64 encoded video file and convert it to OGM format. Then it stores
-the converted video, base 64 encoded too, in the SAM and returns the UID (key)
-of the stored video, so the client can recover it at SAM.
+    O serviço de conversão de vídeo é composto de um webservice, depende do SAM
+    (Serviço de Armazenamento Massivo) responsável por fazer a conversão de
+    todos os vídeos que serão enviados para a Biblioteca Digital.
+
+    Possui apenas um método:
+
+        convert: recebe um vídeo devidamente codificado em base 64, guarda-o
+        no SAM marcado para conversão.
+
+    A conversão será feita por um script "slave" disponível no buildout do pacote.
 
