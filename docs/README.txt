@@ -1,7 +1,7 @@
 Arquitetura do serviço de conversão de vídeo
 
-    O serviço de conversão de vídeo é composto de um webservice, depende do SAM
-    (Serviço de Armazenamento Massivo) responsável por fazer a conversão de
+    O serviço de conversão de vídeo é composto de um webservice, dependente do
+    SAM (Serviço de Armazenamento Massivo) e responsável por fazer a conversão de
     todos os vídeos que serão enviados para a Biblioteca Digital.
 
     Possui apenas um método:
