@@ -19,14 +19,20 @@ class XmlrpcHandler(cyclone.web.XmlrpcRequestHandler):
     implements(IXmlrpc)
     count = 0
 
-    def get_current_user(self):
+    def _get_current_user(self):
         auth = self.request.headers.get("Authorization")
         if auth:
           return decodestring(auth.split(" ")[-1]).split(":")
 
     @defer.inlineCallbacks
+    def _check_auth(self):
+        if not self.settings.auth.authenticate(*self._get_current_user()):
+            defer.returnValue("Authorization Failed!")
+
+    @defer.inlineCallbacks
     @cyclone.web.asynchronous
     def xmlrpc_done(self, uid):
+        self._check_auth()
         sam = Server("http://video:convert@localhost:8888/xmlrpc")
         video_dict = yield sam.get(uid)
         if isinstance(video_dict, str):
@@ -38,6 +44,7 @@ class XmlrpcHandler(cyclone.web.XmlrpcRequestHandler):
     @defer.inlineCallbacks
     @cyclone.web.asynchronous
     def xmlrpc_convert(self, video):
+        self._check_auth()
         to_convert_video = {"video":video, "converted":False}
         to_convert_uid = yield self._pre_store_in_sam(to_convert_video)
         response = yield self._enqueue_uid_to_convert(to_convert_uid)
