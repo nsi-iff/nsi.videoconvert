@@ -13,7 +13,11 @@ class VideoException(Exception):
 def convert_video(uid):
     video_b64 = get_from_sam(uid)
     if not video_b64.data.converted:
-        return process_video(uid, video_b64.data.video, "/tmp/converted")
+        logger = convert_video.get_logger()
+        logger.info("Conversion started.")
+        uid = process_video(uid, video_b64.data.video, "/tmp/converted")
+        logger.info("Conversion finished.")
+        return uid
     else:
         raise VideoException("Video already converted.")
 
