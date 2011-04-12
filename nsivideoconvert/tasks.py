@@ -13,9 +13,10 @@ class VideoException(Exception):
 def convert_video(uid):
     video_b64 = get_from_sam(uid)
     if not video_b64.data.converted:
-        print "Conversion started."
+        logger = convert_video.get_logger()
+        logger.info("Conversion started.")
         uid = process_video(uid, video_b64.data.video, "/tmp/converted")
-        print "Conversion finished."
+        logger.info("Conversion finished.")
         return uid
     else:
         raise VideoException("Video already converted.")
@@ -41,8 +42,8 @@ def convert_video(path, destination=None):
 
 def store_in_sam(uid, video):
     sam = Restfulie.at("http://0.0.0.0:8888/").as_("application/json").auth('test', 'test')
-    return sam.post(key=uid, value=video)
+    return sam.post({'key':uid, 'value':video})
 
 def get_from_sam(uid):
     sam = Restfulie.at("http://0.0.0.0:8888/").as_("application/json").auth('test', 'test')
-    return sam.get(key=uid).resource()
+    return sam.get({'key':uid}).resource()
