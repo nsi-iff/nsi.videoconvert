@@ -42,7 +42,7 @@ class HttpHandler(cyclone.web.XmlrpcRequestHandler):
         self.set_header('Content-Type', 'application/json')
         uid = self._load_request_as_json().get('key')
         sam = Restfulie.at('http://localhost:8888/').auth('test', 'test').as_('application/json')
-        video = yield sam.get({'key':uid}).resource()
+        video = yield sam.get(key=uid).resource()
         if hasattr(video.data, 'converted') and not video.data.converted:
             self.finish(cyclone.web.escape.json_encode({'done':False}))
         self.finish(cyclone.web.escape.json_encode({'done':True}))
@@ -63,5 +63,5 @@ class HttpHandler(cyclone.web.XmlrpcRequestHandler):
 
     def _pre_store_in_sam(self, video):
         SAM = Restfulie.at('http://localhost:8888/').auth('test', 'test').as_('application/json')
-        return SAM.put({'value':video}).resource().key
+        return SAM.put(value=video).resource().key
 
