@@ -18,7 +18,7 @@ def convert_video(uid, callback_url):
         print "Conversion finished."
         if not callback_url == None:
             print callback_url
-            response = Restfulie.at(callback_url).as_('application/json').post(key=grains_uid, status='Done')
+            response = Restfulie.at(callback_url).as_('application/json').post(key=uid, status='Done')
             print "Callback executed."
             print "Response code: %s" % response.code
         else:
