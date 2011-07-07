@@ -53,8 +53,8 @@ class HttpHandler(cyclone.web.XmlrpcRequestHandler):
         self._check_auth()
         self.set_header('Content-Type', 'application/json')
         request_as_json = self._load_request_as_json()
-        video = request_as_json().get('video')
-        callback_url = request_as_json().get('callback') or None
+        video = request_as_json.get('video')
+        callback_url = request_as_json.get('callback') or None
         to_convert_video = {"video":video, "converted":False}
         to_convert_uid = yield self._pre_store_in_sam(to_convert_video)
         response = self._enqueue_uid_to_convert(to_convert_uid, callback_url)
