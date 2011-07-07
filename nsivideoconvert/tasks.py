@@ -10,16 +10,22 @@ class VideoException(Exception):
     pass
 
 @task
-def convert_video(uid):
+def convert_video(uid, callback_url):
     video_b64 = get_from_sam(uid)
     if not video_b64.data.converted:
         print "Conversion started."
         uid = process_video(uid, video_b64.data.video, "/tmp/converted")
         print "Conversion finished."
+        if not callback_url == None:
+            print callback_url
+            response = Restfulie.at(callback_url).as_('application/json').post(key=grains_uid, status='Done')
+            print "Callback executed."
+            print "Response code: %s" % response.code
+        else:
+            print "No callback."
         return uid
     else:
         raise VideoException("Video already converted.")
-
 
 def process_video(uid, video, tmp_video_path):
     save_video_to_filesystem(video, tmp_video_path)
@@ -46,3 +52,4 @@ def store_in_sam(uid, video):
 def get_from_sam(uid):
     sam = Restfulie.at("http://0.0.0.0:8888/").as_("application/json").auth('test', 'test')
     return sam.get(key=uid).resource()
+
