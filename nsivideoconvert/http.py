@@ -52,14 +52,16 @@ class HttpHandler(cyclone.web.XmlrpcRequestHandler):
     def post(self):
         self._check_auth()
         self.set_header('Content-Type', 'application/json')
-        video = self._load_request_as_json().get('video')
+        request_as_json = self._load_request_as_json()
+        video = request_as_json().get('video')
+        callback_url = request_as_json().get('callback') or None
         to_convert_video = {"video":video, "converted":False}
         to_convert_uid = yield self._pre_store_in_sam(to_convert_video)
-        response = self._enqueue_uid_to_convert(to_convert_uid)
+        response = self._enqueue_uid_to_convert(to_convert_uid, callback_url)
         self.finish(cyclone.web.escape.json_encode({'key':to_convert_uid}))
 
-    def _enqueue_uid_to_convert(self, uid):
-        send_task('nsivideoconvert.tasks.convert_video', args=(uid,))
+    def _enqueue_uid_to_convert(self, uid, callback_url):
+        send_task('nsivideoconvert.tasks.convert_video', args=(uid, callback_url))
 
     def _pre_store_in_sam(self, video):
         SAM = Restfulie.at('http://localhost:8888/').auth('test', 'test').as_('application/json')
