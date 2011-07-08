@@ -47,7 +47,7 @@ def convert_video(path, destination=None):
 
 def store_in_sam(uid, video):
     sam = Restfulie.at("http://0.0.0.0:8888/").as_("application/json").auth('test', 'test')
-    return sam.post(key=uid, value=video)
+    return sam.post(key=uid, value=video).resource().key
 
 def get_from_sam(uid):
     sam = Restfulie.at("http://0.0.0.0:8888/").as_("application/json").auth('test', 'test')
