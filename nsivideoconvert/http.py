@@ -37,6 +37,7 @@ class HttpHandler(cyclone.web.RequestHandler):
     def __init__(self, *args, **kwargs):
         cyclone.web.RequestHandler.__init__(self, *args, **kwargs)
         self._load_sam_config()
+        self.sam = Restfulie.at(self.sam_url).auth(self.sam_user, self.sam_pass).as_('application/json')
 
     @defer.inlineCallbacks
     @cyclone.web.asynchronous
@@ -44,8 +45,7 @@ class HttpHandler(cyclone.web.RequestHandler):
         self._check_auth()
         self.set_header('Content-Type', 'application/json')
         uid = self._load_request_as_json().get('key')
-        sam = Restfulie.at(self.sam_url).auth(self.sam_user, self.sam_pass).as_('application/json')
-        video = yield sam.get(key=uid).resource()
+        video = yield self.sam.get(key=uid).resource()
         if hasattr(video.data, 'converted') and not video.data.converted:
             self.finish(cyclone.web.escape.json_encode({'done':False}))
         self.finish(cyclone.web.escape.json_encode({'done':True}))
@@ -67,6 +67,5 @@ class HttpHandler(cyclone.web.RequestHandler):
         send_task('nsivideoconvert.tasks.convert_video', args=(uid, callback_url))
 
     def _pre_store_in_sam(self, video):
-        sam = Restfulie.at(self.sam_url).auth(self.sam_user, self.sam_pass).as_('application/json')
-        return sam.put(value=video).resource().key
+        return self.sam.put(value=video).resource().key
 
