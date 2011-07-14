@@ -10,11 +10,11 @@ class VideoException(Exception):
     pass
 
 @task
-def convert_video(uid, callback_url):
-    video_b64 = get_from_sam(uid)
+def convert_video(uid, callback_url, sam_settings):
+    video_b64 = get_from_sam(uid, sam_settings)
     if not video_b64.data.converted:
         print "Conversion started."
-        uid = process_video(uid, video_b64.data.video, "/tmp/converted")
+        uid = process_video(uid, video_b64.data.video, "/tmp/converted", sam_settings)
         print "Conversion finished."
         if not callback_url == None:
             print callback_url
@@ -27,10 +27,10 @@ def convert_video(uid, callback_url):
     else:
         raise VideoException("Video already converted.")
 
-def process_video(uid, video, tmp_video_path):
+def process_video(uid, video, tmp_video_path, sam_settings):
     save_video_to_filesystem(video, tmp_video_path)
     converted_video = convert_video(tmp_video_path)
-    uid = store_in_sam(uid, b64encode(converted_video))
+    uid = store_in_sam(uid, b64encode(converted_video), sam_settings)
     return uid
 
 def save_video_to_filesystem(video, path):
@@ -45,11 +45,11 @@ def convert_video(path, destination=None):
     converter = OggConverter(path, target=destination).run()
     return open(destination or replace_file_extension(path, 'ogm')).read()
 
-def store_in_sam(uid, video):
-    sam = Restfulie.at("http://0.0.0.0:8888/").as_("application/json").auth('test', 'test')
+def store_in_sam(uid, video, sam_settings):
+    sam = Restfulie.at(self.sam_settings['url']).auth(*self.sam_settings['auth']).as_('application/json')
     return sam.post(key=uid, value=video).resource().key
 
-def get_from_sam(uid):
-    sam = Restfulie.at("http://0.0.0.0:8888/").as_("application/json").auth('test', 'test')
+def get_from_sam(uid, sam_settings):
+    sam = Restfulie.at(self.sam_settings['url']).auth(*self.sam_settings['auth']).as_('application/json')
     return sam.get(key=uid).resource()
 
