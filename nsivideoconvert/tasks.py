@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # encoding: utf-8
+from os import remove
+from os.path import exists
 from base64 import decodestring, b64encode
 from restfulie import Restfulie
 from nsi.multimedia.transform.ogg_converter import OggConverter
@@ -54,10 +56,21 @@ def save_video_to_filesystem(video, path):
     video_to_convert.close()
 
 def convert_video(path, destination=None):
-    if not destination:
-        destination = (path + '.ogm')
-    converter = OggConverter(path, target=destination).run()
-    return open(destination or replace_file_extension(path, 'ogm')).read()
+    try:
+        if not destination:
+            destination = (path + '.ogm')
+        converter = OggConverter(path, target=destination)
+        converter.run()
+        converted_video = open(destination or replace_file_extension(path, 'ogm')).read()
+    finally:
+        files_to_remove = [destination, replace_file_extension(path, 'ogm'), path]
+        for file_ in files_to_remove:
+            remove_if_exists(file_)
+        return converted_video
+
+def remove_if_exists(path):
+    if exists(path):
+        remove(path)
 
 def store_in_sam(uid, video, sam_settings):
     sam = Restfulie.at(sam_settings['url']).auth(*sam_settings['auth']).as_('application/json')
