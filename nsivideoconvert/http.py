@@ -54,19 +54,21 @@ class HttpHandler(cyclone.web.RequestHandler):
         self._check_auth()
         self.set_header('Content-Type', 'application/json')
         request_as_json = self._load_request_as_json()
+        callback_url = request_as_json.get('callback') or None
+        video_link = None
 
         if not request_as_json.get('video_link'):
             video = request_as_json.get('video')
+            to_convert_video = {"video":video, "converted":False}
+            to_convert_uid = yield self._pre_store_in_sam(to_convert_video)
         else:
+            to_convert_uid = yield self._pre_store_in_sam({})
             video_link = request_as_json.get('video_link')
 
-        callback_url = request_as_json.get('callback') or None
-        to_convert_video = {"video":video, "converted":False}
-        to_convert_uid = yield self._pre_store_in_sam(to_convert_video)
-        response = self._enqueue_uid_to_convert(to_convert_uid, callback_url)
+        response = self._enqueue_uid_to_convert(to_convert_uid, callback_url, video_link)
         self.finish(cyclone.web.escape.json_encode({'key':to_convert_uid}))
 
-    def _enqueue_uid_to_convert(self, uid, callback_url, video_link=None):
+    def _enqueue_uid_to_convert(self, uid, callback_url, video_link):
         send_task('nsivideoconvert.tasks.convert_video', args=(uid, callback_url, video_link, self.sam_settings))
 
     def _pre_store_in_sam(self, video):

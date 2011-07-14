@@ -9,8 +9,22 @@ from celery.task import task
 class VideoException(Exception):
     pass
 
+class VideoDownloadException(Exception):
+    pass
+
 @task
 def convert_video(uid, callback_url, video_link, sam_settings):
+    if video_link:
+        try:
+            video = Restfulie.at(video_link).get().body
+        except Exception:
+            raise VideoDownloadException("Could not download the video from %s" % video_link)
+
+        sam = Restfulie.at(sam_settings['url']).auth(*sam_settings['auth']).as_('application/json')
+        to_convert_video = {'video':b64encode(video), 'converted':False}
+        response = sam.post(key=uid, value=to_convert_video).body
+        print response
+
     video_b64 = get_from_sam(uid, sam_settings)
     if not video_b64.data.converted:
         print "Conversion started."
