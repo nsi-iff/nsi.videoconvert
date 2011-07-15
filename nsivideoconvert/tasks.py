@@ -7,6 +7,7 @@ from restfulie import Restfulie
 from nsi.multimedia.transform.ogg_converter import OggConverter
 from nsi.multimedia.utils import replace_file_extension
 from celery.task import task
+from celery.execute import send_task
 
 class VideoException(Exception):
     pass
@@ -17,17 +18,7 @@ class VideoDownloadException(Exception):
 @task
 def convert_video(uid, callback_url, video_link, sam_settings):
     if video_link:
-        try:
-            print "Downloading video from %s" % video_link
-            video = Restfulie.at(video_link).get().body
-        except Exception:
-            raise VideoDownloadException("Could not download the video from %s" % video_link)
-        else:
-            print "Video downloaded."
-
-        sam = Restfulie.at(sam_settings['url']).auth(*sam_settings['auth']).as_('application/json')
-        to_convert_video = {'video':b64encode(video), 'converted':False}
-        response = sam.post(key=uid, value=to_convert_video).body
+        uid = download_video_and_store_in_sam(video_link, uid, sam_settings)
 
     video_b64 = get_from_sam(uid, sam_settings)
     if not video_b64.data.converted:
@@ -35,15 +26,38 @@ def convert_video(uid, callback_url, video_link, sam_settings):
         uid = process_video(uid, video_b64.data.video, "/tmp/converted", sam_settings)
         print "Conversion finished."
         if not callback_url == None:
-            print callback_url
-            response = Restfulie.at(callback_url).as_('application/json').post(key=uid, status='Done')
-            print "Callback executed."
-            print "Response code: %s" % response.code
+            print "Callback task sent."
+            send_task('nsivideoconvert.tasks.execute_callback', args=(callback_url, uid))
         else:
             print "No callback."
         return uid
     else:
         raise VideoException("Video already converted.")
+
+def download_video_and_store_in_sam(video_link, uid, sam_settings):
+    try:
+        print "Downloading video from %s" % video_link
+        video = Restfulie.at(video_link).get().body
+    except Exception:
+        raise VideoDownloadException("Could not download the video from %s" % video_link)
+    else:
+        print "Video downloaded."
+
+    to_convert_video = {'video':b64encode(video), 'converted':False}
+    downloaded_video_uid = store_in_sam(uid, to_convert_video, sam_settings)
+
+    return downloaded_video_uid
+
+@task(max_retries=3)
+def execute_callback(url, video_uid):
+    try:
+        print "Sending callback to %s" % url
+        response = Restfulie.at(url).as_('application/json').post(key=uid, status='Done')
+    except Exception, e:
+        execute_callback.retry(exc=e, countdown=10)
+    else:
+        print "Callback executed."
+        print "Response code: %s" % response.code
 
 def process_video(uid, video, tmp_video_path, sam_settings):
     save_video_to_filesystem(video, tmp_video_path)
