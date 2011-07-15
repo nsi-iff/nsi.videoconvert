@@ -52,7 +52,7 @@ def download_video_and_store_in_sam(video_link, uid, sam_settings):
 def execute_callback(url, video_uid):
     try:
         print "Sending callback to %s" % url
-        response = Restfulie.at(url).as_('application/json').post(key=uid, status='Done')
+        response = Restfulie.at(url).as_('application/json').post(key=video_uid, status='Done')
     except Exception, e:
         execute_callback.retry(exc=e, countdown=10)
     else:
