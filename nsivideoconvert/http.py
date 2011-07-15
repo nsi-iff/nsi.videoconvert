@@ -46,7 +46,8 @@ class HttpHandler(cyclone.web.RequestHandler):
         video = yield self.sam.get(key=uid).resource()
         if hasattr(video.data, 'converted') and not video.data.converted:
             self.finish(cyclone.web.escape.json_encode({'done':False}))
-        self.finish(cyclone.web.escape.json_encode({'done':True}))
+        else:
+            self.finish(cyclone.web.escape.json_encode({'done':True}))
 
     @defer.inlineCallbacks
     @cyclone.web.asynchronous
@@ -69,7 +70,7 @@ class HttpHandler(cyclone.web.RequestHandler):
         self.finish(cyclone.web.escape.json_encode({'key':to_convert_uid}))
 
     def _enqueue_uid_to_convert(self, uid, callback_url, video_link):
-        send_task('nsivideoconvert.tasks.convert_video', args=(uid, callback_url, video_link, self.sam_settings))
+        send_task('nsivideoconvert.tasks.VideoConversion', args=(uid, callback_url, video_link, self.sam_settings))
 
     def _pre_store_in_sam(self, video):
         return self.sam.put(value=video).resource().key
