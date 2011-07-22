@@ -70,7 +70,8 @@ class HttpHandler(cyclone.web.RequestHandler):
         self.finish(cyclone.web.escape.json_encode({'key':to_convert_uid}))
 
     def _enqueue_uid_to_convert(self, uid, callback_url, video_link):
-        send_task('nsivideoconvert.tasks.VideoConversion', args=(uid, callback_url, video_link, self.sam_settings))
+        send_task('nsivideoconvert.tasks.VideoConversion', args=(uid, callback_url, video_link, self.sam_settings),
+                  queue='convert', routing_key='convert')
 
     def _pre_store_in_sam(self, video):
         return self.sam.put(value=video).resource().key

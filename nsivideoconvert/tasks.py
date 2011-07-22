@@ -37,7 +37,8 @@ class VideoConversion(Task):
             print "Conversion finished."
             if not self.callback_url == None:
                 print "Callback task sent."
-                send_task('nsivideoconvert.tasks.Callback', args=(callback_url, self.destination_uid))
+                send_task('nsivideoconvert.tasks.Callback', args=(callback_url, self.destination_uid), queue='convert',
+                          routing_key='convert')
             else:
                 print "No callback."
             return self.destination_uid
