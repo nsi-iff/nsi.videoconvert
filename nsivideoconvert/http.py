@@ -3,12 +3,26 @@
 
 from json import dumps, loads
 from base64 import decodestring, b64encode
+import functools
 import cyclone.web
 from twisted.internet import defer
 from zope.interface import implements
 from nsivideoconvert.interfaces.http import IHttp
 from restfulie import Restfulie
 from celery.execute import send_task
+
+def auth(method):
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        auth_type, auth_data = self.request.headers.get("Authorization").split()
+        if not auth_type == "Basic":
+            raise cyclone.web.HTTPAuthenticationRequired("Basic", realm="Restricted Access")
+        user, password = decodestring(auth_data).split(":")
+        # authentication itself
+        if not self.settings.auth.authenticate(user, password):
+            raise cyclone.web.HTTPError(401, "Unauthorized")
+        return method(self, *args, **kwargs)
+    return wrapper
 
 
 class HttpHandler(cyclone.web.RequestHandler):
@@ -21,11 +35,6 @@ class HttpHandler(cyclone.web.RequestHandler):
         if auth:
           return decodestring(auth.split(" ")[-1]).split(":")
 
-    def _check_auth(self):
-        user, password = self._get_current_user()
-        if not self.settings.auth.authenticate(user, password):
-            raise cyclone.web.HTTPError(401, 'Unauthorized')
-
     def _load_request_as_json(self):
         return loads(self.request.body)
 
@@ -37,23 +46,22 @@ class HttpHandler(cyclone.web.RequestHandler):
         self._load_sam_config()
         self.sam = Restfulie.at(self.sam_settings['url']).auth(*self.sam_settings['auth']).as_('application/json')
 
+    @auth
     @defer.inlineCallbacks
     @cyclone.web.asynchronous
     def get(self):
-        self._check_auth()
-        self.set_header('Content-Type', 'application/json')
         uid = self._load_request_as_json().get('key')
         video = yield self.sam.get(key=uid).resource()
+        self.set_header('Content-Type', 'application/json')
         if hasattr(video.data, 'converted') and not video.data.converted:
             self.finish(cyclone.web.escape.json_encode({'done':False}))
         else:
             self.finish(cyclone.web.escape.json_encode({'done':True}))
 
+    @auth
     @defer.inlineCallbacks
     @cyclone.web.asynchronous
     def post(self):
-        self._check_auth()
-        self.set_header('Content-Type', 'application/json')
         request_as_json = self._load_request_as_json()
         callback_url = request_as_json.get('callback') or None
         video_link = None
@@ -67,6 +75,7 @@ class HttpHandler(cyclone.web.RequestHandler):
             video_link = request_as_json.get('video_link')
 
         response = self._enqueue_uid_to_convert(to_convert_uid, callback_url, video_link)
+        self.set_header('Content-Type', 'application/json')
         self.finish(cyclone.web.escape.json_encode({'key':to_convert_uid}))
 
     def _enqueue_uid_to_convert(self, uid, callback_url, video_link):
