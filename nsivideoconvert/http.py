@@ -4,12 +4,14 @@
 from json import dumps, loads
 from base64 import decodestring, b64encode
 import functools
+
 import cyclone.web
 from twisted.internet import defer
 from zope.interface import implements
 from nsivideoconvert.interfaces.http import IHttp
 from restfulie import Restfulie
 from celery.execute import send_task
+from twisted.python import log
 
 def auth(method):
     @functools.wraps(method)
@@ -51,11 +53,30 @@ class HttpHandler(cyclone.web.RequestHandler):
     @cyclone.web.asynchronous
     def get(self):
         uid = self._load_request_as_json().get('key')
-        video = yield self.sam.get(key=uid).resource()
+        if not uid:
+            log.msg("GET failed.")
+            log.msg("Request didn't have a key to check.")
+            raise cyclone.web.HTTPError(400, "Malformed request.")
+        video = yield self.sam.get(key=uid)
+        if response.code == '404':
+            log.msg("GET failed!")
+            log.msg("Couldn't find any value for the key: %s" % key)
+            raise cyclone.web.HTTPError(404, 'Key not found in SAM.')
+        elif response.code == '401':
+            log.msg("GET failed!")
+            log.msg("Couldn't authenticate with SAM.")
+            raise cyclone.web.HTTPError(401, 'SAM user and password not match.')
+        elif response.code == '500':
+            log.msg("GET failed!")
+            log.msg("Couldn't connecting to SAM.")
+            raise cyclone.web.HTTPError(500, 'Error while connecting to SAM.')
+        video = video.resource()
         self.set_header('Content-Type', 'application/json')
         if hasattr(video.data, 'converted') and not video.data.converted:
+            log.msg('The video with key %s is done.' % uid)
             self.finish(cyclone.web.escape.json_encode({'done':False}))
         else:
+            log.msg('The video with key %s is not done.' % uid)
             self.finish(cyclone.web.escape.json_encode({'done':True}))
 
     @auth
@@ -70,18 +91,43 @@ class HttpHandler(cyclone.web.RequestHandler):
             video = request_as_json.get('video')
             to_convert_video = {"video":video, "converted":False}
             to_convert_uid = yield self._pre_store_in_sam(to_convert_video)
-        else:
-            to_convert_uid = yield self._pre_store_in_sam({})
+            log.msg("Video sent to granulation queue.")
+        elif request_as_json.get('video_link'):
+            to_convert_uid = yield self._pre_store_in_sam({"video":""})
             video_link = request_as_json.get('video_link')
+            log.msg("Video in link %s sent to the granulation queue." % video_link)
+        else:
+            log.msg("POST failed.")
+            log.msg("Couldn't find a video or a link to download it.")
+            raise cyclone.web.HTTPError(400, 'Malformed request.')
 
         response = self._enqueue_uid_to_convert(to_convert_uid, callback_url, video_link)
         self.set_header('Content-Type', 'application/json')
+        log.msg("Video key: %s" % to_convert_uid)
         self.finish(cyclone.web.escape.json_encode({'key':to_convert_uid}))
 
     def _enqueue_uid_to_convert(self, uid, callback_url, video_link):
-        send_task('nsivideoconvert.tasks.VideoConversion', args=(uid, callback_url, video_link, self.sam_settings),
-                  queue='convert', routing_key='convert')
+        try:
+            send_task('nsivideoconvert.tasks.VideoConversion', args=(uid, callback_url, video_link, self.sam_settings),
+                      queue='convert', routing_key='convert')
+        except:
+            log.msg("POST failed.")
+            log.msg("Couldn't put the job in the queue.")
+            raise cyclone.web.HTTPError(503, "Queue service unavailable.")
 
     def _pre_store_in_sam(self, video):
-        return self.sam.put(value=video).resource().key
+        response =  self.sam.put(value=video)
+        if response.code == '404':
+            log.msg("GET failed!")
+            log.msg("Couldn't find any value for the key: %s" % key)
+            raise cyclone.web.HTTPError(404, 'Key not found in SAM.')
+        elif response.code == '401':
+            log.msg("GET failed!")
+            log.msg("Couldn't authenticate with SAM.")
+            raise cyclone.web.HTTPError(401, 'SAM user and password not match.')
+        elif response.code == '500':
+            log.msg("GET failed!")
+            log.msg("Couldn't connecting to SAM.")
+            raise cyclone.web.HTTPError(500, 'Error while connecting to SAM.')
+        return response.resource().key
 
