@@ -57,7 +57,7 @@ class HttpHandler(cyclone.web.RequestHandler):
             log.msg("GET failed.")
             log.msg("Request didn't have a key to check.")
             raise cyclone.web.HTTPError(400, "Malformed request.")
-        video = yield self.sam.get(key=uid)
+        response = yield self.sam.get(key=uid)
         if response.code == '404':
             log.msg("GET failed!")
             log.msg("Couldn't find any value for the key: %s" % key)
@@ -70,12 +70,15 @@ class HttpHandler(cyclone.web.RequestHandler):
             log.msg("GET failed!")
             log.msg("Couldn't connecting to SAM.")
             raise cyclone.web.HTTPError(500, 'Error while connecting to SAM.')
-        video = video.resource()
+        video = response.resource()
+        del response
         self.set_header('Content-Type', 'application/json')
         if hasattr(video.data, 'converted') and not video.data.converted:
+            del video
             log.msg('The video with key %s is done.' % uid)
             self.finish(cyclone.web.escape.json_encode({'done':False}))
         else:
+            del video
             log.msg('The video with key %s is not done.' % uid)
             self.finish(cyclone.web.escape.json_encode({'done':True}))
 
@@ -93,7 +96,7 @@ class HttpHandler(cyclone.web.RequestHandler):
             to_convert_uid = yield self._pre_store_in_sam(to_convert_video)
             log.msg("Video sent to granulation queue.")
         elif request_as_json.get('video_link'):
-            to_convert_uid = yield self._pre_store_in_sam({"video":""})
+            to_convert_uid = yield self._pre_store_in_sam({"video":"", "converted":False})
             video_link = request_as_json.get('video_link')
             log.msg("Video in link %s sent to the granulation queue." % video_link)
         else:
@@ -117,11 +120,7 @@ class HttpHandler(cyclone.web.RequestHandler):
 
     def _pre_store_in_sam(self, video):
         response =  self.sam.put(value=video)
-        if response.code == '404':
-            log.msg("GET failed!")
-            log.msg("Couldn't find any value for the key: %s" % key)
-            raise cyclone.web.HTTPError(404, 'Key not found in SAM.')
-        elif response.code == '401':
+        if response.code == '401':
             log.msg("GET failed!")
             log.msg("Couldn't authenticate with SAM.")
             raise cyclone.web.HTTPError(401, 'SAM user and password not match.')
