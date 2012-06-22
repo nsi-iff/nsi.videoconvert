@@ -46,6 +46,7 @@ class HttpHandler(cyclone.web.RequestHandler):
     def __init__(self, *args, **kwargs):
         cyclone.web.RequestHandler.__init__(self, *args, **kwargs)
         self._load_sam_config()
+        self._task_queue = self.settings.task_queue
         self.sam = Restfulie.at(self.sam_settings['url']).auth(*self.sam_settings['auth']).as_('application/json')
 
     @auth
@@ -115,7 +116,7 @@ class HttpHandler(cyclone.web.RequestHandler):
     def _enqueue_uid_to_convert(self, uid, callback_url, video_link):
         try:
             send_task('nsivideoconvert.tasks.VideoConversion', args=(uid, callback_url, video_link, self.sam_settings),
-                      queue='convert', routing_key='convert')
+                      queue=self._task_queue, routing_key=self._task_queue)
         except:
             log.msg("POST failed.")
             log.msg("Couldn't put the job in the queue.")
