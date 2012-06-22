@@ -3,9 +3,11 @@
 from os import remove
 from os.path import exists
 from base64 import decodestring, b64encode
+
 from restfulie import Restfulie
 from nsi.multimedia.transform.ogg_converter import OggConverter
 from nsi.multimedia.utils import replace_file_extension
+
 from celery.task import task, Task
 from celery.execute import send_task
 
@@ -21,7 +23,7 @@ class VideoConversion(Task):
         self.callback_url = callback_url
         self.sam = Restfulie.at(sam_settings['url']).auth(*sam_settings['auth']).as_('application/json')
         self.destination_uid = uid
-        self.tmp_path = "/tmp/converted"
+        self.tmp_path = "/tmp/original"
         video_is_converted = False
 
         if video_link:
@@ -56,9 +58,12 @@ class VideoConversion(Task):
         self._original_video = b64encode(video)
 
     def _process_video(self):
+        print "Saving video to filesystem."
         self._save_video_to_filesystem()
+        print "Converting it..."
         self._convert_video()
-        self._store_in_sam(self.destination_uid, self._converted_video)
+        print "Storing back in SAM."
+        self._store_in_sam(self.destination_uid, {"video":self._converted_video, "converted":True})
 
     def _save_video_to_filesystem(self):
         video = decodestring(self._original_video)
@@ -69,12 +74,13 @@ class VideoConversion(Task):
     def _convert_video(self, destination=None):
         try:
             if not destination:
-                destination = (self.tmp_path + '.ogm')
+                destination = (self.tmp_path + '.ogv')
             converter = OggConverter(self.tmp_path, target=destination)
             converter.run()
-            converted_video = open(destination or replace_file_extension(self.tmp_path, 'ogm')).read()
+            path_to_converted_video = destination or replace_file_extension(self.tmp_path, 'ogv')
+            converted_video = open(path_to_converted_video).read()
         finally:
-            files_to_remove = [destination, replace_file_extension(self.tmp_path, 'ogm'), self.tmp_path]
+            files_to_remove = [destination, replace_file_extension(self.tmp_path, 'ogv'), self.tmp_path]
             for file_ in files_to_remove:
                 self._remove_if_exists(file_)
             self._converted_video = b64encode(converted_video)
