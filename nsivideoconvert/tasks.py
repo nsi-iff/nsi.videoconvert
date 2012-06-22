@@ -3,6 +3,7 @@
 from os import remove
 from os.path import exists
 from base64 import decodestring, b64encode
+from uuid import uuid4
 
 from restfulie import Restfulie
 from nsi.multimedia.transform.ogg_converter import OggConverter
@@ -23,7 +24,7 @@ class VideoConversion(Task):
         self.callback_url = callback_url
         self.sam = Restfulie.at(sam_settings['url']).auth(*sam_settings['auth']).as_('application/json')
         self.destination_uid = uid
-        self.tmp_path = "/tmp/original"
+        self.tmp_path = "/tmp/original-%s" % uuid4()
         video_is_converted = False
 
         if video_link:
