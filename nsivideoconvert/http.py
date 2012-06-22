@@ -90,7 +90,7 @@ class HttpHandler(cyclone.web.RequestHandler):
         callback_url = request_as_json.get('callback') or None
         video_link = None
 
-        if not request_as_json.get('video_link'):
+        if request_as_json.get('video'):
             video = request_as_json.get('video')
             to_convert_video = {"video":video, "converted":False}
             to_convert_uid = yield self._pre_store_in_sam(to_convert_video)
@@ -99,6 +99,9 @@ class HttpHandler(cyclone.web.RequestHandler):
             to_convert_uid = yield self._pre_store_in_sam({"video":"", "converted":False})
             video_link = request_as_json.get('video_link')
             log.msg("Video in link %s sent to the granulation queue." % video_link)
+        elif request_as_json.get('video_uid'):
+            to_convert_uid = request_as_json.get('video_uid')
+            log.msg("Granulating from SAM key %s" % to_convert_uid)
         else:
             log.msg("POST failed.")
             log.msg("Couldn't find a video or a link to download it.")
