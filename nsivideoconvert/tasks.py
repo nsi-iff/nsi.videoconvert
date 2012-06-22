@@ -31,7 +31,10 @@ class VideoConversion(Task):
         else:
             response = self._get_from_sam(uid)
             self._original_video = response.data.video
-            video_is_converted = response.data.converted
+            if not hasattr(response, 'converted'):
+                video_is_converted = False
+            else:
+                video_is_converted = response.data.converted
 
         if not video_is_converted:
             print "Conversion started."
@@ -90,7 +93,8 @@ class VideoConversion(Task):
             remove(path)
 
     def _get_from_sam(self, uid):
-        return self.sam.get(key=uid).resource()
+        response = self.sam.get(key=uid)
+        return response.resource()
 
     def _store_in_sam(self, uid, video):
         return self.sam.post(key=uid, value=video).resource().key
